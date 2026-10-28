@@ -30,32 +30,27 @@ jobs:
 
     - name: Find Project and Build
       run: |
-        # Tìm file .xcodeproj hoặc .xcworkspace ở mọi thư mục con
-        PROJECT_PATH=$(find . -name "*.xcodeproj" -maxdepth 3 | head -n 1)
-        WORKSPACE_PATH=$(find . -name "*.xcworkspace" -maxdepth 3 | head -n 1)
+        # Tìm đường dẫn tuyệt đối của file dự án
+        PROJECT_PATH=$(find $PWD -name "*.xcodeproj" -maxdepth 3 | head -n 1)
+        WORKSPACE_PATH=$(find $PWD -name "*.xcworkspace" -maxdepth 3 | head -n 1)
         
         if [ -n "$WORKSPACE_PATH" ]; then
             BUILD_TARGET="-workspace $WORKSPACE_PATH"
-            TARGET_DIR=$(dirname "$WORKSPACE_PATH")
         elif [ -n "$PROJECT_PATH" ]; then
             BUILD_TARGET="-project $PROJECT_PATH"
-            TARGET_DIR=$(dirname "$PROJECT_PATH")
         else
-            echo "LỖI: Không tìm thấy file .xcodeproj hoặc .xcworkspace nào trong file zip!"
+            echo "LỖI: Không tìm thấy file dự án!"
             exit 1
         fi
         
-        echo "Đã tìm thấy dự án tại: $TARGET_DIR"
         echo "Đang build với: $BUILD_TARGET"
         
-        # Di chuyển vào đúng thư mục chứa dự án
-        cd "$TARGET_DIR"
-        
+        # Chạy build luôn bằng đường dẫn tuyệt đối
         xcodebuild $BUILD_TARGET \
                    -scheme ThreeOneOSFive \
                    -sdk iphoneos \
                    -configuration Release \
-                   -archivePath $PWD/../../build/ThreeOneOSFive.xcarchive \
+                   -archivePath $PWD/build/ThreeOneOSFive.xcarchive \
                    archive \
                    CODE_SIGN_IDENTITY="" \
                    CODE_SIGNING_REQUIRED=NO \
