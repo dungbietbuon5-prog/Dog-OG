@@ -29,23 +29,23 @@ jobs:
 
     - name: Find Project and Build
       run: |
-        PROJECT_PATH=$(find $PWD -name "*.xcodeproj" -maxdepth 3 | head -n 1)
-        WORKSPACE_PATH=$(find $PWD -name "*.xcworkspace" -maxdepth 3 | head -n 1)
+        # TÌM FILE .xcodeproj NHƯNG BỎ QUA THƯ MỤC RÁC __MACOSX
+        PROJECT_PATH=$(find $PWD -name "*.xcodeproj" -not -path "*/__MACOSX/*" -maxdepth 4 | head -n 1)
+        WORKSPACE_PATH=$(find $PWD -name "*.xcworkspace" -not -path "*/__MACOSX/*" -maxdepth 4 | head -n 1)
         
         if [ -n "$WORKSPACE_PATH" ]; then
             BUILD_TARGET="-workspace $WORKSPACE_PATH"
         elif [ -n "$PROJECT_PATH" ]; then
             BUILD_TARGET="-project $PROJECT_PATH"
         else
-            echo "LỖI: Không tìm thấy file dự án!"
+            echo "LỖI: Không tìm thấy file dự án (đã bỏ qua __MACOSX)!"
             exit 1
         fi
         
-        # TỰ ĐỘNG LẤY SCHEME ĐẦU TIÊN
         SCHEME_NAME=$(xcodebuild $BUILD_TARGET -list | grep -A 100 "Schemes:" | grep -v "Schemes:" | head -n 1 | xargs)
         
+        echo "Đã tìm thấy Dự án: $BUILD_TARGET"
         echo "Đã tìm thấy Scheme: $SCHEME_NAME"
-        echo "Đang build với: $BUILD_TARGET"
         
         xcodebuild $BUILD_TARGET \
                    -scheme "$SCHEME_NAME" \
