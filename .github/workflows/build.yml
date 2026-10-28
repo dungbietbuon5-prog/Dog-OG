@@ -14,6 +14,16 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Unzip Source Code
+      run: |
+        # Tự động giải nén tất cả file zip trong thư mục
+        for f in *.zip; do
+          if [ -f "$f" ]; then
+            echo "Đang giải nén $f..."
+            unzip -q "$f"
+          fi
+        done
+
     - name: Set up Xcode
       uses: maxim-lobanov/setup-xcode@v1
       with:
@@ -21,7 +31,16 @@ jobs:
 
     - name: Build and Archive
       run: |
-        xcodebuild -project ThreeOneOSFive.xcodeproj \
+        # Tự động tìm file .xcodeproj hoặc .xcworkspace để build
+        if [ -d *.xcodeproj ]; then
+          PROJ_FLAG="-project $(ls -d *.xcodeproj | head -n 1)"
+        elif [ -d *.xcworkspace ]; then
+          PROJ_FLAG="-workspace $(ls -d *.xcworkspace | head -n 1)"
+        fi
+        
+        echo "Đang build với: $PROJ_FLAG"
+        
+        xcodebuild $PROJ_FLAG \
                    -scheme ThreeOneOSFive \
                    -sdk iphoneos \
                    -configuration Release \
