@@ -18,7 +18,6 @@ jobs:
       run: |
         for f in *.zip; do
           if [ -f "$f" ]; then
-            echo "Đang giải nén $f..."
             unzip -q "$f"
           fi
         done
@@ -30,7 +29,6 @@ jobs:
 
     - name: Find Project and Build
       run: |
-        # Tìm đường dẫn tuyệt đối của file dự án
         PROJECT_PATH=$(find $PWD -name "*.xcodeproj" -maxdepth 3 | head -n 1)
         WORKSPACE_PATH=$(find $PWD -name "*.xcworkspace" -maxdepth 3 | head -n 1)
         
@@ -43,14 +41,17 @@ jobs:
             exit 1
         fi
         
+        # TỰ ĐỘNG LẤY SCHEME ĐẦU TIÊN
+        SCHEME_NAME=$(xcodebuild $BUILD_TARGET -list | grep -A 100 "Schemes:" | grep -v "Schemes:" | head -n 1 | xargs)
+        
+        echo "Đã tìm thấy Scheme: $SCHEME_NAME"
         echo "Đang build với: $BUILD_TARGET"
         
-        # Chạy build luôn bằng đường dẫn tuyệt đối
         xcodebuild $BUILD_TARGET \
-                   -scheme ThreeOneOSFive \
+                   -scheme "$SCHEME_NAME" \
                    -sdk iphoneos \
                    -configuration Release \
-                   -archivePath $PWD/build/ThreeOneOSFive.xcarchive \
+                   -archivePath $PWD/build/App.xcarchive \
                    archive \
                    CODE_SIGN_IDENTITY="" \
                    CODE_SIGNING_REQUIRED=NO \
@@ -59,12 +60,12 @@ jobs:
     - name: Package to IPA
       run: |
         mkdir -p Payload
-        cp -r build/ThreeOneOSFive.xcarchive/Products/Applications/*.app Payload/
-        zip -r ThreeOneOSFive.ipa Payload
+        cp -r build/App.xcarchive/Products/Applications/*.app Payload/
+        zip -r App.ipa Payload
         rm -rf Payload
 
     - name: Upload IPA Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: ThreeOneOSFive-ipa
-        path: ThreeOneOSFive.ipa
+        name: App-ipa
+        path: App.ipa
