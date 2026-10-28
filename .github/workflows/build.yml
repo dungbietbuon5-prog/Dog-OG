@@ -16,7 +16,6 @@ jobs:
 
     - name: Unzip Source Code
       run: |
-        # Tự động giải nén tất cả file zip trong thư mục
         for f in *.zip; do
           if [ -f "$f" ]; then
             echo "Đang giải nén $f..."
@@ -29,22 +28,34 @@ jobs:
       with:
         xcode-version: latest
 
-    - name: Build and Archive
+    - name: Find Project and Build
       run: |
-        # Tự động tìm file .xcodeproj hoặc .xcworkspace để build
-        if [ -d *.xcodeproj ]; then
-          PROJ_FLAG="-project $(ls -d *.xcodeproj | head -n 1)"
-        elif [ -d *.xcworkspace ]; then
-          PROJ_FLAG="-workspace $(ls -d *.xcworkspace | head -n 1)"
+        # Tìm file .xcodeproj hoặc .xcworkspace ở mọi thư mục con
+        PROJECT_PATH=$(find . -name "*.xcodeproj" -maxdepth 3 | head -n 1)
+        WORKSPACE_PATH=$(find . -name "*.xcworkspace" -maxdepth 3 | head -n 1)
+        
+        if [ -n "$WORKSPACE_PATH" ]; then
+            BUILD_TARGET="-workspace $WORKSPACE_PATH"
+            TARGET_DIR=$(dirname "$WORKSPACE_PATH")
+        elif [ -n "$PROJECT_PATH" ]; then
+            BUILD_TARGET="-project $PROJECT_PATH"
+            TARGET_DIR=$(dirname "$PROJECT_PATH")
+        else
+            echo "LỖI: Không tìm thấy file .xcodeproj hoặc .xcworkspace nào trong file zip!"
+            exit 1
         fi
         
-        echo "Đang build với: $PROJ_FLAG"
+        echo "Đã tìm thấy dự án tại: $TARGET_DIR"
+        echo "Đang build với: $BUILD_TARGET"
         
-        xcodebuild $PROJ_FLAG \
+        # Di chuyển vào đúng thư mục chứa dự án
+        cd "$TARGET_DIR"
+        
+        xcodebuild $BUILD_TARGET \
                    -scheme ThreeOneOSFive \
                    -sdk iphoneos \
                    -configuration Release \
-                   -archivePath $PWD/build/ThreeOneOSFive.xcarchive \
+                   -archivePath $PWD/../../build/ThreeOneOSFive.xcarchive \
                    archive \
                    CODE_SIGN_IDENTITY="" \
                    CODE_SIGNING_REQUIRED=NO \
