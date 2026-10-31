@@ -1,74 +1,51 @@
-name: Build and Package IPA
+name: Extract IPA Info
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [ "main" ]
   workflow_dispatch:
 
 jobs:
-  build:
-    name: Build and Package IPA
-    runs-on: macos-13
-
+  extract_info:
+    runs-on: macos-latest
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4
 
-    - name: Unzip Source Code (Nếu có file zip)
+    - name: Extract IPA and Read Info.plist
       run: |
-        for f in *.zip; do
-          if [ -f "$f" ]; then
-            echo "Đang giải nén $f..."
-            unzip -q "$f"
-          fi
-        done
-
-    - name: Set up Xcode
-      uses: maxim-lobanov/setup-xcode@v1
-      with:
-        xcode-version: latest
-
-    - name: Find Project and Build
-      run: |
-        # Tìm file .xcodeproj hoặc .xcworkspace (bỏ qua thư mục rác)
-        PROJECT_PATH=$(find $PWD -name "*.xcodeproj" -not -path "*/__MACOSX/*" -maxdepth 4 | head -n 1)
-        WORKSPACE_PATH=$(find $PWD -name "*.xcworkspace" -not -path "*/__MACOSX/*" -maxdepth 4 | head -n 1)
+        # Tìm file .ipa đầu tiên trong thư mục
+        IPA_FILE=$(ls *.ipa | head -n 1)
         
-        if [ -n "$WORKSPACE_PATH" ]; then
-            BUILD_TARGET="-workspace $WORKSPACE_PATH"
-        elif [ -n "$PROJECT_PATH" ]; then
-            BUILD_TARGET="-project $PROJECT_PATH"
-        else
-            echo "LỖI: Không tìm thấy file dự án Xcode!"
-            exit 1
+        if [ -z "$IPA_FILE" ]; then
+          echo "LỖI: Không tìm thấy file .ipa nào trong repo!"
+          exit 1
         fi
         
-        # Tự động lấy Scheme đầu tiên
-        SCHEME_NAME=$(xcodebuild $BUILD_TARGET -list | grep -A 100 "Schemes:" | grep -v "Schemes:" | head -n 1 | xargs)
+        echo "Đang xử lý file: $IPA_FILE"
         
-        echo "Đang build dự án: $BUILD_TARGET"
-        echo "Sử dụng Scheme: $SCHEME_NAME"
+        # Giải nén IPA
+        unzip -q "$IPA_FILE" -d extracted_ipa
         
-        # Build Archive (Không ký)
-        xcodebuild $BUILD_TARGET \
-                   -scheme "$SCHEME_NAME" \
-                   -sdk iphoneos \
-                   -configuration Release \
-                   -archivePath $PWD/build/TrungDungApp.xcarchive \
-                   archive \
-                   CODE_SIGN_IDENTITY="" \
-                   CODE_SIGNING_REQUIRED=NO \
-                   CODE_SIGNING_ALLOWED=NO
+        # Tìm thư mục .app bên trong Payload
+        APP_DIR=$(find extracted_ipa/Payload -name "*.app" | head -n 1)
+        
+        if [ -z "$APP_DIR" ]; then
+          echo "LỖI: Không tìm thấy thư mục .app bên trong Payload!"
+          exit 1
+        fi
+        
+        echo "--- THÔNG TIN APP ---"
+        # Đọc thông tin từ Info.plist
+        plutil -p "$APP_DIR/Info.plist" | grep -E "CFBundleIdentifier|CFBundleDisplayName|CFBundleShortVersionString|CFBundleVersion|MinimumOSVersion"
+        
+        echo "--- KIẾN TRÚC BINARY ---"
+        # Đọc kiến trúc file binary
+        BINARY_NAME=$(basename "$APP_DIR" .app)
+        lipo -info "$APP_DIR/$BINARY_NAME" || echo "Không đọc được kiến trúc (File có thể bị mã hóa)"
 
-    - name: Package to IPA
-      run: |
-        mkdir -p Payload
-        cp -r build/TrungDungApp.xcarchive/Products/Applications/*.app Payload/
-        zip -r TrungDungApp.ipa Payload
-        rm -rf Payload
-
-    - name: Upload IPA Artifact
+    - name: Upload Extracted Info
       uses: actions/upload-artifact@v4
       with:
-        name: TrungDung-IPA
-        path: TrungDungApp.ipa
+        name: App-Info
+        path: extracted_ipa/Payload/*.app/Info.plist
